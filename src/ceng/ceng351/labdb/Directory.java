@@ -13,15 +13,15 @@ import java.util.ArrayList;
  */
 public class Directory {
     int globalDepth;
-    ArrayList<Index> bucketList;
+    ArrayList<Index> indexList;
     
     public Directory(){
         globalDepth = 1;
         int directorySize = (int) Math.pow(2, globalDepth);
-        bucketList.ensureCapacity(directorySize);
+        indexList.ensureCapacity(directorySize);
         for (int i = 0; i < directorySize ; i++){
             Index babyIndex = new Index(i);
-            bucketList.add(babyIndex);
+            indexList.add(babyIndex);
         }
     }
     public void enlargeDirectory(){
