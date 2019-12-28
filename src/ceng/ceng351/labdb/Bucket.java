@@ -17,6 +17,7 @@ public class Bucket {
     
     public Bucket(int bucketSize){
         this.localDepth = 1;
+        students = new ArrayList();
         students.ensureCapacity(bucketSize);
     }
     

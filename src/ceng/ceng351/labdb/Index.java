@@ -9,7 +9,7 @@ package ceng.ceng351.labdb;
  *
  * @author Kril
  */
-class Index {
+public class Index {
     // Although I use ArrayList to hold Index objects,
     // I wanted to save expected indexNo of an Index.
     // It should match Directory's Index object indices.
