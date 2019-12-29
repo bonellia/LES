@@ -30,6 +30,13 @@ public class Bucket {
     }
     
     public void removeStudent(Student student){
-        students.remove(student);
+        String studentID = student.studentID;
+        int studentCount = this.students.size();
+        for (int i = 0; i < studentCount; i++){
+            if (this.students.get(i).studentID.equals(studentID)){
+                this.students.remove(i);
+                break;
+            }
+        }
     }
 }

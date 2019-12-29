@@ -27,9 +27,28 @@ public class Directory {
             indexList.add(babyIndex);
         }
     }
+    
+    /**
+     * Iterates on indexes pointing given bucket in order to
+     * sort their pointedBuckets. "Indices" preferred because
+     * "indexes" is used for index objects.
+     * @param bucket
+     * @return
+     */
+    public ArrayList<Integer> findIndicesPointingBucket(Bucket bucket){
+        ArrayList<Integer> indices = new ArrayList();
+        int indexCount = (int) Math.pow(2, globalDepth);
+        for (int i = 0; i < indexCount; i++){
+            if (indexList.get(i).pointedBucket == bucket){
+                indices.add(i);
+            }
+        }
+        return indices;
+    }
+    
     public void enlargeDirectory(){
-        globalDepth++; // duh!
         int oldDirectorySize = (int) Math.pow(2, globalDepth);
+        globalDepth++; // duh!
         int newDirectorySize = (int) Math.pow(2, globalDepth);
         this.indexList.ensureCapacity(newDirectorySize);
         // For each new spot in the indexList,

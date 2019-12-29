@@ -16,10 +16,10 @@ public class Evaluate {
             labdb.enter("e10");
             labdb.enter("e15");
             labdb.enter("e7");
-            labdb.enter("e19");/*
+            labdb.enter("e19");
             labdb.enter("e13");
             labdb.enter("e20");
-            labdb.enter("e9");
+            labdb.enter("e9");/*
             
             labdb.leave("e32");
             labdb.leave("e16");

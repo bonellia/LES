@@ -12,7 +12,177 @@ public class LabDB {
         this.bucketSize = bucketSize;
         this.labDirectory = new Directory(this.bucketSize);
     }
-
+    
+    /**
+     * Performs necessary operations when globalDepths is equal to localDepth.
+     * @param bucket
+     * @param studentID
+     * @param newStudent
+     */
+    public void procedureWhenGDEQLD(Bucket bucket, String studentID, Student newStudent){
+        // Begin by doubling indices in Directory.
+        this.labDirectory.enlargeDirectory();
+        // Now we need to redistribute students.
+        ArrayList <Student> studentsInBucket = bucket.students;
+        // Since the students will be distributed, in order to not 
+        // mess up indices, need to copy these students.
+        ArrayList <Student> studentsToPlace = new ArrayList();
+        int studentCountInTempList = studentsInBucket.size();
+        for (int i = 0; i < studentCountInTempList; i++){
+            Student currentStudent = new Student(studentsInBucket.get(i).studentID);
+            studentsToPlace.add(currentStudent);
+        }
+        // Need a new bucket regardless the scenario.
+        Bucket newBucket = new Bucket(bucketSize);
+        // Before doing anything, we need to check if adding a new bucket is enough.
+        // If it is enough, just split students and set the pointers properly.
+        // If not, we need to enlargeDirectory again.
+        int studentCount = studentsToPlace.size();
+        int studentsToOldBucket = 0;
+        int studentsToNewBucket = 0;
+        int oldlocalDepth = bucket.localDepth;
+        String oldBucketsNewBD = "0" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
+        String newBucketBD = "1" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
+        // Converting binary digits to integers for two reasons:
+        // 1. Integer comparison is faster than string comparison.
+        // 2. We already use integer indices to locate Index objects.
+        int oldBDAsInt = Integer.parseInt(oldBucketsNewBD, 2);
+        int newBDAsInt = Integer.parseInt(newBucketBD, 2);
+        for (int i = 0; i < studentCount; i++){
+            String studentNewBD = studentsToPlace.get(i).getBinaryDigits(oldlocalDepth + 1);
+            int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
+            if (studentNewBDAsInt == oldBDAsInt){
+                // Students stays in same bucket, don't touch pointers.
+                studentsToOldBucket++;
+            }
+            else if (studentNewBDAsInt == newBDAsInt){
+                studentsToNewBucket++;
+                // Delete current student from old bucket.
+                bucket.removeStudent(studentsToPlace.get(i));
+                // Add current student to new bucket.
+                newBucket.addStudent(studentsToPlace.get(i));
+            }
+            else {
+                // This shouldn't happen.
+                System.out.println("New student is weird!");
+            }
+        }
+        if (studentsToOldBucket >= bucketSize || studentsToNewBucket >= bucketSize){
+            // Tough luck. We will fail to add new student to any of the buckets.
+            // We need to increase localDepth of old and new buckets.
+            bucket.setLocalDepth(oldlocalDepth + 1);
+            newBucket.setLocalDepth(oldlocalDepth + 1);
+            // Don't forget to point newBucket from correct Index:
+            // Make bucket assignment here instead of Directory class.
+            labDirectory.indexList.get(newBDAsInt).pointedBucket = newBucket;
+            // Then we call the function recursively with the new Directory.
+            // Using OOP pays off here, because we don't need labDirectory etc. as argument.
+            enter(studentID);
+        }
+        else{
+            // Enlargement of Directory suffices.
+            // We still need to increase localDepth of old and new buckets.
+            bucket.setLocalDepth(oldlocalDepth + 1);
+            newBucket.setLocalDepth(oldlocalDepth + 1);
+            // Add new student to new bucket and set pointer properly.
+            bucket.addStudent(newStudent);
+            labDirectory.indexList.get(newBDAsInt).setBucket(newBucket);
+        }
+    }
+    
+    /**
+     * Performs necessary operations when globalDepths is greater than localDepth.
+     * @param bucket
+     * @param studentID
+     * @param newStudent
+     */
+    public void procedureWhenGDGTLD(Bucket bucket, String studentID, Student newStudent){
+        // Now we need to split bucket and sort pointers.
+        
+        ArrayList <Student> studentsInBucket = bucket.students;
+        // Since the students will be distributed, in order to not 
+        // mess up indices, need to copy these students.
+        ArrayList <Student> studentsToPlace = new ArrayList();
+        int studentCountInTempList = studentsInBucket.size();
+        for (int i = 0; i < studentCountInTempList; i++){
+            Student currentStudent = new Student(studentsInBucket.get(i).studentID);
+            studentsToPlace.add(currentStudent);
+        }
+        // Need a new bucket regardless the scenario.
+        Bucket newBucket = new Bucket(bucketSize);
+        // Before doing anything, need to check if split is enough.
+        // If it is enough, just set the pointers properly.
+        // If not, we need to enlargeDirectory again.
+        int studentCount = studentsToPlace.size();
+        int studentsToOldBucket = 0;
+        int studentsToNewBucket = 0;
+        int oldlocalDepth = bucket.localDepth;
+        String oldBucketsNewBD = "0" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
+        String newBucketsBD = "1" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
+        // Converting binary digits to integers for two reasons:
+        // 1. Integer comparison is faster than string comparison.
+        // 2. We already use integer indices to locate Index objects.
+        int oldBDAsInt = Integer.parseInt(oldBucketsNewBD, 2);
+        int newBDAsInt = Integer.parseInt(newBucketsBD, 2);
+        for (int i = 0; i < studentCount; i++){
+            Student currentStudent = studentsToPlace.get(i);
+            String studentNewBD = currentStudent.getBinaryDigits(oldlocalDepth + 1);
+            int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
+            if (studentNewBDAsInt == oldBDAsInt){
+                // Students stays in same bucket, don't touch pointers.
+                studentsToOldBucket++;
+            }
+            else if (studentNewBDAsInt == newBDAsInt){
+                studentsToNewBucket++;
+                // Add current student to new bucket.
+                newBucket.addStudent(currentStudent);
+                // Delete current student from old bucket.
+                bucket.removeStudent(currentStudent);
+                
+            }
+            else {
+                // This shouldn't happen.
+                System.out.println("New student is weird!");
+            }
+        }
+        if (studentsToOldBucket >= bucketSize || studentsToNewBucket >= bucketSize){
+            // Tough luck. We will fail to add new student to any of the buckets.
+            // We need to increase localDepth of old and new buckets.
+            bucket.setLocalDepth(oldlocalDepth + 1);
+            newBucket.setLocalDepth(oldlocalDepth + 1);
+            // Don't forget to point newBucket from correct Index:
+            // Make bucket assignment here instead of Directory class.
+            ArrayList<Integer> indicesOfIndexes = labDirectory.findIndicesPointingBucket(bucket);
+            int indexCount = indicesOfIndexes.size();
+            
+            for(int i = 0; i < indexCount; i++){
+                labDirectory.indexList.get(i).pointedBucket = newBucket;
+            }
+            // Then we call the function recursively with the new Directory.
+            // Using OOP pays off here, because we don't need labDirectory etc. as argument.
+            enter(studentID);
+        }
+        else{
+            // Splitting the bucket suffices.
+            // We still need to increase localDepth of old and new buckets.
+            bucket.setLocalDepth(oldlocalDepth + 1);
+            newBucket.setLocalDepth(oldlocalDepth + 1);
+            // Add new student to proper bucket and set pointer properly.
+            String studentNewBD = newStudent.getBinaryDigits(oldlocalDepth + 1);
+            int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
+            if (studentNewBDAsInt == oldBDAsInt){
+                // New students goes to old bucket.
+                bucket.addStudent(newStudent);
+            }
+            else if (studentNewBDAsInt == newBDAsInt){
+                // Add new student to new bucket.
+                newBucket.addStudent(newStudent);
+            }
+            // Finally, set new bucket to be pointed by bottom index.
+            labDirectory.indexList.get(newBDAsInt).setBucket(newBucket);
+        }
+    }
+    
     public void enter(String studentID) {
         // We don't turn down any student, so we create a new student object.
         Student newStudent = new Student(studentID);
@@ -23,13 +193,13 @@ public class LabDB {
         Index index = labDirectory.indexList.get(indexNo);
         // This is the bucket newStudent needs to fit.
         Bucket bucket = index.pointedBucket;
-        // Is the bucket full?
-        // Note that following procedure may repeat.
-        // Instead of using recursion, will use a while loop.
+        
         // Using following algorithm:
         // If a bucket is full, enlargeDirectory and re-distribute students.
-        // If one of the new buckets are still full, repeat.
+        // If student doesn't fit into either of the buckets, repeat.
         // If new students can fit one of the new buckets, terminate.
+        
+        // Is the bucket full?
         Boolean newStudentFits;
         newStudentFits = bucket.students.size() != bucketSize;
         
@@ -39,62 +209,14 @@ public class LabDB {
         }
         else {
             if (bucket.localDepth == labDirectory.globalDepth){
-                // Time to double our directory and duplicate pointers.
-                this.labDirectory.enlargeDirectory();
-                // Now we need to split bucket and sort pointers.
-                ArrayList <Student> studentsToPlace = bucket.students;
-                // Need a new bucket regardless the scenario.
-                Bucket newBucket = new Bucket(bucketSize);
-                // Before doing anything, need to check if split is enough.
-                // If it is enough, just set the pointers properly.
-                // If not, we need to enlargeDirectory again.
-                int studentCount = studentsToPlace.size();
-                int studentsToOldBucket = 0;
-                int studentsToNewBucket = 0;
-                int oldlocalDepth = bucket.localDepth;
-                String oldBucketBD = "0" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
-                String newBucketBD = "1" + studentsToPlace.get(0).getBinaryDigits(oldlocalDepth);
-                int oldBDAsInt = Integer.parseInt(oldBucketBD, 2);
-                int newBDAsInt = Integer.parseInt(newBucketBD, 2);
-                for (int i = 0; i < studentCount; i++){
-                    String studentNewBD = studentsToPlace.get(i).getBinaryDigits(oldlocalDepth + 1);
-                    int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
-                    // Converting binary digits to integers for two reasons:
-                    // 1. Integer comparison is faster than string comparison.
-                    // 2. We already use integer indices to locate Index objects.
-                    if (studentNewBDAsInt == oldBDAsInt){
-                        // Students stays in same bucket, don't touch pointers.
-                        studentsToOldBucket++;
-                    }
-                    else if (studentNewBDAsInt == newBDAsInt){
-                        studentsToNewBucket++;
-                        // Add current student to new bucket.
-                        newBucket.addStudent(studentsToPlace.get(i));
-                        
-                    }
-                    else {
-                        // This shouldn't happen.
-                        System.out.println("New student is weird!");
-                    }
-                }
-                if (studentsToOldBucket >= bucketSize || studentsToNewBucket >= bucketSize){
-                    // Tough luck. We will fail to add new student to any of the buckets.
-                    // We need to increase localDepth of old and new buckets.
-                    bucket.setLocalDepth(oldlocalDepth + 1);
-                    newBucket.setLocalDepth(oldlocalDepth + 1);
-                    // Don't forget to point newBucket from correct Index:
-                    // Make bucket assignment here instead of Directory class.
-                    labDirectory.indexList.get(newBDAsInt).pointedBucket = newBucket;
-                    // Then we call the function recursively with the new Directory.
-                    // Using OOP pays off here, because we don't need labDirectory etc. as argument.
-                    enter(studentID);
-                }
-                else{
-                    // Enlargement of Directory suffices.
-                    // Add new student to new bucket and set pointer properly.
-                    bucket.addStudent(newStudent);
-                    labDirectory.indexList.get(newBDAsInt).setBucket(newBucket);
-                }
+                // A scenario where a bucket is full and
+                // enlargeDirectory is required.
+                procedureWhenGDEQLD(bucket, studentID, newStudent);
+            }
+            else if (bucket.localDepth < labDirectory.globalDepth){
+                // A different scenario where a bucket is full,
+                // but enlargeDirectory isn't really necessary.
+                procedureWhenGDGTLD(bucket, studentID, newStudent);
             }
         }
     }
