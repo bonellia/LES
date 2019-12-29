@@ -34,6 +34,7 @@ public class LabDB {
         }
         // Need a new bucket regardless the scenario.
         Bucket newBucket = new Bucket(bucketSize);
+        newBucket.localDepth = bucket.localDepth;
         // Before doing anything, we need to check if adding a new bucket is enough.
         // If it is enough, just split students and set the pointers properly.
         // If not, we need to enlargeDirectory again.
@@ -49,7 +50,8 @@ public class LabDB {
         int oldBDAsInt = Integer.parseInt(oldBucketsNewBD, 2);
         int newBDAsInt = Integer.parseInt(newBucketBD, 2);
         for (int i = 0; i < studentCount; i++){
-            String studentNewBD = studentsToPlace.get(i).getBinaryDigits(oldlocalDepth + 1);
+            Student currentStudent = studentsToPlace.get(i);
+            String studentNewBD = currentStudent.getBinaryDigits(oldlocalDepth + 1);
             int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
             if (studentNewBDAsInt == oldBDAsInt){
                 // Students stays in same bucket, don't touch pointers.
@@ -58,9 +60,9 @@ public class LabDB {
             else if (studentNewBDAsInt == newBDAsInt){
                 studentsToNewBucket++;
                 // Delete current student from old bucket.
-                bucket.removeStudent(studentsToPlace.get(i));
+                bucket.removeStudent(currentStudent);
                 // Add current student to new bucket.
-                newBucket.addStudent(studentsToPlace.get(i));
+                newBucket.addStudent(currentStudent);
             }
             else {
                 // This shouldn't happen.
@@ -84,8 +86,17 @@ public class LabDB {
             // We still need to increase localDepth of old and new buckets.
             bucket.setLocalDepth(oldlocalDepth + 1);
             newBucket.setLocalDepth(oldlocalDepth + 1);
-            // Add new student to new bucket and set pointer properly.
-            bucket.addStudent(newStudent);
+            // Add new student to proper bucket and set pointer properly.
+            String studentNewBD = newStudent.getBinaryDigits(oldlocalDepth + 1);
+            int studentNewBDAsInt = Integer.parseInt(studentNewBD, 2);
+            if (studentNewBDAsInt == oldBDAsInt){
+                // New students goes to old bucket.
+                bucket.addStudent(newStudent);
+            }
+            else if (studentNewBDAsInt == newBDAsInt){
+                // Add new student to new bucket.
+                newBucket.addStudent(newStudent);
+            }
             labDirectory.indexList.get(newBDAsInt).setBucket(newBucket);
         }
     }
