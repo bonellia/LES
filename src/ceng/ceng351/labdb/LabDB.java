@@ -15,11 +15,11 @@ public class LabDB {
     
     /**
      * Performs necessary operations when globalDepths is equal to localDepth.
-     * @param bucket
-     * @param studentID
-     * @param newStudent
+     * @param bucket The old bucket that student doesn't fit into.
+     * @param newStudent The student that needs to be placed.
      */
-    public void procedureWhenGDEQLD(Bucket bucket, String studentID, Student newStudent){
+    public void procedureWhenGDEQLD(Bucket bucket, Student newStudent){
+        String studentID = newStudent.studentID;
         // Begin by doubling indices in Directory.
         this.labDirectory.enlargeDirectory();
         // Now we need to redistribute students.
@@ -103,13 +103,11 @@ public class LabDB {
     
     /**
      * Performs necessary operations when globalDepths is greater than localDepth.
-     * @param bucket
-     * @param studentID
-     * @param newStudent
+     * @param bucket The old bucket that student doesn't fit into.
+     * @param newStudent The student that needs to be placed.
      */
-    public void procedureWhenGDGTLD(Bucket bucket, String studentID, Student newStudent){
-        // Now we need to split bucket and sort pointers.
-        
+    public void procedureWhenGDGTLD(Bucket bucket, Student newStudent){
+        String studentID = newStudent.studentID;
         ArrayList <Student> studentsInBucket = bucket.students;
         // Since the students will be distributed, in order to not 
         // mess up indices, need to copy these students.
@@ -194,64 +192,174 @@ public class LabDB {
         }
     }
     
-    public void enter(String studentID) {
-        // We don't turn down any student, so we create a new student object.
-        Student newStudent = new Student(studentID);
-        // This is the binary digits suffix to find
-        String studentBD = newStudent.getBinaryDigits(labDirectory.globalDepth);
-        int indexNo = Integer.parseInt(studentBD, 2);
-        // This is the index that points to bucket we need.
-        Index index = labDirectory.indexList.get(indexNo);
-        // This is the bucket newStudent needs to fit.
-        Bucket bucket = index.pointedBucket;
+    /**
+     * Does nothing indeed. This method is a joke!
+     * Called when non-existing student tries to leave or
+     * duplicate student tries to enter.
+     */
+    public void doNothing(){
         
-        // Using following algorithm:
-        // If a bucket is full, enlargeDirectory and re-distribute students.
-        // If student doesn't fit into either of the buckets, repeat.
-        // If new students can fit one of the new buckets, terminate.
-        
-        // Is the bucket full?
-        Boolean newStudentFits;
-        newStudentFits = bucket.students.size() != bucketSize;
-        
-        if(newStudentFits){
-            // The easiest scenario. Just add new student.
-            bucket.addStudent(newStudent);
-        }
-        else {
-            if (bucket.localDepth == labDirectory.globalDepth){
-                // A scenario where a bucket is full and
-                // enlargeDirectory is required.
-                procedureWhenGDEQLD(bucket, studentID, newStudent);
+    }
+    
+    /**
+     * Checks whether directory needs shrinking or not.
+     * @return
+     */
+    public Boolean shrinkNeeded(){
+        Boolean result = true;
+        int directorySize = labDirectory.indexList.size();
+        for (int i = 0; i < directorySize; i++) {
+            int currentBucketsLocalDepth = labDirectory.indexList.get(i).pointedBucket.localDepth;
+            if(currentBucketsLocalDepth < labDirectory.globalDepth){
             }
-            else if (bucket.localDepth < labDirectory.globalDepth){
-                // A different scenario where a bucket is full,
-                // but enlargeDirectory isn't really necessary.
-                procedureWhenGDGTLD(bucket, studentID, newStudent);
+            else{
+                result = false;
+                break;
+            }
+        }
+        return result;
+    }
+    
+    public void shrinkDirectory(){
+        int directorySize = (int) Math.pow(2, labDirectory.globalDepth);
+        for (int i = 0; i < directorySize/2; i++) {
+            labDirectory.indexList.get(i).pointedBucket = 
+                    labDirectory.indexList.get(i + directorySize/2).pointedBucket;
+        }
+        for (int i = directorySize-1; i >= directorySize/2; i--){
+            labDirectory.indexList.remove(i);
+        }
+        labDirectory.indexList.ensureCapacity(directorySize/2);
+        labDirectory.globalDepth--;
+    }
+    
+    /**
+     * Updates labDirectory using following algorithm:
+     * If a bucket is full, enlargeDirectory and re-distribute students.
+     * If student still doesn't fit into either of the buckets, repeat.
+     * If new student can fit into one of the new buckets, terminate.
+     * @param studentID Student's ID like "e1819325"
+     */
+    public void enter(String studentID) {
+        // First some exception handling. Check if student is already inside.
+        Boolean isStudentInLab = "-1".equals(search(studentID));
+        if (!isStudentInLab){
+            doNothing();
+        }
+        else{
+            // We don't turn down any student, so we create a new student object.
+            Student newStudent = new Student(studentID);
+            // This is the binary digits suffix to find
+            String studentBD = newStudent.getBinaryDigits(labDirectory.globalDepth);
+            int indexNo = Integer.parseInt(studentBD, 2);
+            // This is the index that points to bucket we need.
+            Index index = labDirectory.indexList.get(indexNo);
+            // This is the bucket newStudent needs to fit.
+            Bucket bucket = index.pointedBucket;
+
+            // Is the bucket full?
+            Boolean newStudentFits;
+            newStudentFits = bucket.students.size() != bucketSize;
+
+            if(newStudentFits){
+                // The easiest scenario. Just add new student.
+                bucket.addStudent(newStudent);
+            }
+            else {
+                if (bucket.localDepth == labDirectory.globalDepth){
+                    // A scenario where a bucket is full and
+                    // enlargeDirectory is required.
+                    procedureWhenGDEQLD(bucket, newStudent);
+                }
+                else if (bucket.localDepth < labDirectory.globalDepth){
+                    // A different scenario where a bucket is full,
+                    // but enlargeDirectory isn't really necessary.
+                    procedureWhenGDGTLD(bucket, newStudent);
+                }
             }
         }
     }
 
     public void leave(String studentID) {
-        
+        // First some exception handling. Check if student is already missing.
+        String studentAddress = search(studentID);
+        Boolean isStudentMissing = "-1".equals(studentAddress);
+        if (isStudentMissing){
+            doNothing();
+        }
+        else{
+            int indexNo = Integer.parseInt(studentAddress, 2);
+            Index index = labDirectory.indexList.get(indexNo);
+            Bucket bucket = index.pointedBucket;
+            Student leavingStudent = bucket.fetchStudent(studentID);
+            String studentIndexBD = leavingStudent.getBinaryDigits(labDirectory.globalDepth);
+            bucket.removeStudent(leavingStudent);
+            // Check if merging is necessary:
+            Boolean mergeRequired = bucket.students.isEmpty();
+            if (mergeRequired){
+                // First, get buddyBucket which is the "split image".
+                String buddyAddressPrefix = studentIndexBD.substring(0, labDirectory.globalDepth-bucket.localDepth);
+                String studentCurrentDigit = studentIndexBD.substring(labDirectory.globalDepth-bucket.localDepth, labDirectory.globalDepth - bucket.localDepth + 1);
+                String buddyAddressSuffix = studentIndexBD.substring(labDirectory.globalDepth - bucket.localDepth + 1);
+                String buddyAddress = "0".equals(studentCurrentDigit) 
+                                    ? buddyAddressPrefix + "1" + buddyAddressSuffix 
+                                    : buddyAddressPrefix + "0" + buddyAddressSuffix;
+                int buddyIndexNo = Integer.parseInt(buddyAddress, 2);
+                Index buddyIndex = labDirectory.indexList.get(buddyIndexNo);
+                Bucket buddyBucket = buddyIndex.pointedBucket;
+                if (bucket.localDepth == buddyBucket.localDepth){
+                    // Just gonna set the pointer of index to buddyBucket.
+                    // Garbage collector will handle empty bucket (hopefully).
+                    index.pointedBucket = buddyBucket;
+                    // TO DO: Find other indexes pointing this bucket and
+                    // set their pointed buckets to buddyBucket as well
+                    buddyBucket.localDepth--;
+                }
+            }
+            if(shrinkNeeded()){
+                shrinkDirectory();
+            }
+        }
     }
 
+    /**
+     *
+     * @param studentID The student that is being searched.
+     * @return Returns "-1" if not found, binary digits of index otherwise.
+     */
     public String search(String studentID) {
         int indexNo;
         int studentNo = Integer.parseInt(studentID.substring(1));
         String studentNoInBinary = Integer.toBinaryString(studentNo);
-        int beginIndexOfDigits = studentNoInBinary.length() - labDirectory.globalDepth;
-        indexNo = Integer.parseInt(studentNoInBinary.substring(beginIndexOfDigits), 2);
+        String indexInBinary = "";
+        int digitCount = studentNoInBinary.length();
+        int depth = labDirectory.globalDepth;
+        if (digitCount < depth){
+            // For each missing digits, add leading zeros.
+            int missingDigitCount = depth - digitCount;
+            String paddedZeros = "";
+            for (int i = 0; i < missingDigitCount; i++){
+                paddedZeros = "0" + paddedZeros;
+            }
+            indexInBinary = paddedZeros + studentNoInBinary;
+        }
+        else if (digitCount > depth){
+            int beginIndexOfDigits = studentNoInBinary.length() - depth;
+            indexInBinary = studentNoInBinary.substring(beginIndexOfDigits);
+        }
+        else{
+            indexInBinary = studentNoInBinary;
+        }
+        indexNo = Integer.parseInt(indexInBinary, 2);
         Index index = labDirectory.indexList.get(indexNo);
         Bucket bucket = index.getBucket();
         ArrayList<Student> students = bucket.students;
         int studentCount = students.size();
         String result = "-1";
         for (int i = 0; i < studentCount; i++){
-            int currentStudentsNo = Integer.parseInt(students.get(indexNo).studentID);
+            int currentStudentsNo = Integer.parseInt(students.get(i).studentID.substring(1));
             if (currentStudentsNo == studentNo){
-                beginIndexOfDigits = studentNoInBinary.length() - bucket.localDepth;
-                result = studentNoInBinary.substring(beginIndexOfDigits);
+                result = students.get(i).getBinaryDigits(this.labDirectory.globalDepth);
                 break;
             }
         }

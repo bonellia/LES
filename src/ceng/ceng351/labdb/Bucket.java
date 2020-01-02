@@ -29,6 +29,10 @@ public class Bucket {
         students.add(student);
     }
     
+    /**
+     *
+     * @param student Student to be deleted
+     */
     public void removeStudent(Student student){
         String studentID = student.studentID;
         int studentCount = this.students.size();
@@ -39,4 +43,19 @@ public class Bucket {
             }
         }
     }
+    public Student fetchStudent(String studentID){
+        ArrayList<Student> studentList = this.students;
+        int studentCount = studentList.size();
+        for (int i = 0; i < studentCount; i++) {
+            Student currentStudent = studentList.get(i);
+            String currentStudentNo = currentStudent.studentID.substring(1);
+            if(currentStudentNo.equals(studentID.substring(1))){
+                return currentStudent;
+            }
+        }
+        // We already know that student is in this bucket.
+        // So this function should never return null anyways.
+        return null;
+    }
+    
 }
