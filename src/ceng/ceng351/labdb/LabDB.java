@@ -280,6 +280,59 @@ public class LabDB {
         }
     }
 
+    public ArrayList<Index> getPointingIndexes(Bucket bucket){
+        ArrayList<Index> result = new ArrayList();
+        int directorySize = labDirectory.indexList.size();
+        for (int i = 0; i < directorySize; i++) {
+            if (labDirectory.indexList.get(i).pointedBucket == bucket){
+                result.add(labDirectory.indexList.get(i));
+            }
+        }
+        return result;
+    }
+    
+    public void mergeMaster(Bucket bucket, String studentAddress){
+        // First, get buddyBucket which is the "split image".
+        String buddyAddressPrefix = studentAddress.substring(0, labDirectory.globalDepth-bucket.localDepth);
+        String studentCurrentDigit = studentAddress.substring(labDirectory.globalDepth-bucket.localDepth, labDirectory.globalDepth - bucket.localDepth + 1);
+        String buddyAddressSuffix = studentAddress.substring(labDirectory.globalDepth - bucket.localDepth + 1);
+        String buddyAddress = "0".equals(studentCurrentDigit) 
+                            ? buddyAddressPrefix + "1" + buddyAddressSuffix 
+                            : buddyAddressPrefix + "0" + buddyAddressSuffix;
+        int buddyIndexNo = Integer.parseInt(buddyAddress, 2);
+        Index buddyIndex = labDirectory.indexList.get(buddyIndexNo);
+        Bucket buddyBucket = buddyIndex.pointedBucket;
+        // Just gonna set the pointer of index to buddyBucket.
+        // Garbage collector will handle empty bucket (hopefully).
+        ArrayList<Index> pointingIndexes = getPointingIndexes(bucket);
+        int indexCount = pointingIndexes.size();
+        for (int i = 0; i < indexCount; i++) {
+            pointingIndexes.get(i).pointedBucket = buddyBucket;
+        }
+        // TO DO: Find other indexes pointing this bucket and
+        // set their pointed buckets to buddyBucket as well
+        buddyBucket.localDepth--;
+        if(shrinkNeeded()){
+            shrinkDirectory();
+        }
+        else {
+            if (buddyBucket.students.isEmpty()){
+                // Another merge may be necessary.
+                Bucket buddyOfMergedBucket = getBuddyBucket(buddyBucket, studentAddress);
+                mergeMaster(buddyOfMergedBucket, studentAddress);
+            }
+        }
+    }
+    
+    public Bucket getBuddyBucket(Bucket bucket, String studentAddress){
+        String buddyBucketAddress = "0".equals(studentAddress.substring(0, 1)) 
+                            ? "1" + studentAddress.substring(1) 
+                            : "0" + studentAddress.substring(1);
+        int buddyBucketAddressNo = Integer.parseInt(buddyBucketAddress, 2);
+        Bucket buddyBucket = labDirectory.indexList.get(buddyBucketAddressNo).pointedBucket;
+        return buddyBucket;
+    }
+    
     public void leave(String studentID) {
         // First some exception handling. Check if student is already missing.
         String studentAddress = search(studentID);
@@ -288,36 +341,40 @@ public class LabDB {
             doNothing();
         }
         else{
+            // Need student's address as binary digits.
             int indexNo = Integer.parseInt(studentAddress, 2);
+            // Need index that points to correct bucket.
             Index index = labDirectory.indexList.get(indexNo);
+            // This bucket is important. Will determine next operations.
             Bucket bucket = index.pointedBucket;
+            // Get the student as Student object.
             Student leavingStudent = bucket.fetchStudent(studentID);
-            String studentIndexBD = leavingStudent.getBinaryDigits(labDirectory.globalDepth);
+            // Now delete the leaving student from the bucket it was kept.
             bucket.removeStudent(leavingStudent);
             // Check if merging is necessary:
-            Boolean mergeRequired = bucket.students.isEmpty();
-            if (mergeRequired){
-                // First, get buddyBucket which is the "split image".
-                String buddyAddressPrefix = studentIndexBD.substring(0, labDirectory.globalDepth-bucket.localDepth);
-                String studentCurrentDigit = studentIndexBD.substring(labDirectory.globalDepth-bucket.localDepth, labDirectory.globalDepth - bucket.localDepth + 1);
-                String buddyAddressSuffix = studentIndexBD.substring(labDirectory.globalDepth - bucket.localDepth + 1);
-                String buddyAddress = "0".equals(studentCurrentDigit) 
-                                    ? buddyAddressPrefix + "1" + buddyAddressSuffix 
-                                    : buddyAddressPrefix + "0" + buddyAddressSuffix;
-                int buddyIndexNo = Integer.parseInt(buddyAddress, 2);
-                Index buddyIndex = labDirectory.indexList.get(buddyIndexNo);
-                Bucket buddyBucket = buddyIndex.pointedBucket;
-                if (bucket.localDepth == buddyBucket.localDepth){
-                    // Just gonna set the pointer of index to buddyBucket.
-                    // Garbage collector will handle empty bucket (hopefully).
-                    index.pointedBucket = buddyBucket;
-                    // TO DO: Find other indexes pointing this bucket and
-                    // set their pointed buckets to buddyBucket as well
-                    buddyBucket.localDepth--;
+            Boolean bucketLeftEmpty = bucket.students.isEmpty();
+            // Here, we need to do following operations recursively.
+            if (bucketLeftEmpty){
+                // Bucket may have left empty, but this doesn't warrant a merge.
+                Bucket buddyBucket = getBuddyBucket(bucket, studentAddress);
+                Boolean buddyBucketMergable = bucket.localDepth == buddyBucket.localDepth;
+                if (bucket.localDepth == 1){
+                    buddyBucketMergable = false;
                 }
+                if (buddyBucketMergable){
+                    // This method needs to work recursively.
+                    // One merge, one halving if possible.
+                    // Needs to check whether further merge possible or not.
+                    mergeMaster(bucket, studentAddress);
+                }
+                else{
+                    doNothing();
+                }
+                
             }
-            if(shrinkNeeded()){
-                shrinkDirectory();
+            else{
+                // We do not check for halving, we do it after successful merges only.
+                doNothing();
             }
         }
     }
